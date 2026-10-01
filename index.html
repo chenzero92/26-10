@@ -5,14 +5,29 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>张力流行演唱教室</title>
 <style>
-body { font-family: sans-serif; max-width: 600px; margin: 40px auto; padding: 0 20px; line-height: 1.8; color: #333; }
-h1 { color: #2d6a4f; }
+body { margin: 0; min-height: 100vh; font-family: sans-serif; color: #fff; line-height: 1.8;
+  background: linear-gradient(to bottom, #1e3c72 0%, #6a4c93 40%, #f08a5d 75%, #ffd29d 100%);
+  background-attachment: fixed; }
+.sun { position: fixed; bottom: 18%; left: 50%; width: 160px; height: 160px; margin-left: -80px;
+  border-radius: 50%; background: radial-gradient(circle, #fff6d6, #ffd27d 60%, rgba(255,210,125,0)); }
+.hill1 { position: fixed; bottom: -60px; left: -10%; width: 70%; height: 200px;
+  background: #3b2a5a; border-radius: 50% 50% 0 0; opacity: .85; }
+.hill2 { position: fixed; bottom: -80px; right: -10%; width: 80%; height: 220px;
+  background: #2a1f45; border-radius: 50% 50% 0 0; }
+.content { position: relative; z-index: 1; max-width: 600px; margin: 40px auto; padding: 30px 24px;
+  background: rgba(255,255,255,.15); border-radius: 16px; backdrop-filter: blur(6px); }
+h1 { margin-top: 0; }
 </style>
 </head>
 <body>
+<div class="sun"></div>
+<div class="hill1"></div>
+<div class="hill2"></div>
+<div class="content">
 <h1>张力流行演唱教室</h1>
 <p>一对一流行演唱教学，位于长沙。</p>
 <h2>关于老师</h2>
 <p>18 年演唱经验，8 年教学经验。</p>
+</div>
 </body>
 </html>
