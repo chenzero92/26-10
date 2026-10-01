@@ -5,24 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>张力流行演唱教室</title>
 <style>
-body { margin: 0; min-height: 100vh; overflow-x: hidden; font-family: sans-serif; color: #e8ecff; line-height: 1.8;
-  background: linear-gradient(to bottom, #01020a 0%, #050a26 45%, #0c1a4a 80%, #1a2a60 100%);
-  background-attachment: fixed; }
-.sky { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; overflow: hidden; }
-.milkyway { position: absolute; top: -15%; left: -25%; width: 150%; height: 55%; transform: rotate(-28deg);
-  background: linear-gradient(to bottom, transparent, rgba(150,170,255,.15) 35%, rgba(255,235,215,.25) 50%, rgba(150,170,255,.15) 65%, transparent);
-  filter: blur(28px); }
-.star { position: absolute; background: #fff; border-radius: 50%; animation: twinkle 4s infinite ease-in-out; }
-@keyframes twinkle { 0%,100% { opacity: .25; } 50% { opacity: 1; } }
-.dune1 { position: fixed; bottom: -90px; left: -20%; width: 90%; height: 220px; background: #04050d; border-radius: 50% 50% 0 0; z-index: 0; }
-.dune2 { position: fixed; bottom: -70px; right: -20%; width: 85%; height: 180px; background: #090b1a; border-radius: 50% 50% 0 0; z-index: 0; }
-.content { position: relative; z-index: 1; max-width: 600px; margin: 40px auto; padding: 30px 24px;
-  background: rgba(5,10,40,.45); border-radius: 16px; backdrop-filter: blur(6px); }
+body { margin: 0; min-height: 100vh; overflow-x: hidden; font-family: sans-serif; color: #e8ecff; line-height: 1.8; background: #01020a; }
+canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; }
+.dune1 { position: fixed; bottom: -90px; left: -20%; width: 90%; height: 200px; background: #020309; border-radius: 50% 50% 0 0; z-index: 1; }
+.dune2 { position: fixed; bottom: -70px; right: -20%; width: 85%; height: 160px; background: #05060f; border-radius: 50% 50% 0 0; z-index: 1; }
+.content { position: relative; z-index: 2; max-width: 600px; margin: 40px auto; padding: 30px 24px;
+  background: rgba(3,6,30,.4); border-radius: 16px; backdrop-filter: blur(6px); }
 h1 { margin-top: 0; }
 </style>
 </head>
 <body>
-<div class="sky" id="sky"><div class="milkyway"></div></div>
+<canvas id="bg"></canvas>
+<canvas id="tw"></canvas>
 <div class="dune1"></div>
 <div class="dune2"></div>
 <div class="content">
@@ -32,19 +26,122 @@ h1 { margin-top: 0; }
 <p>18 年演唱经验，8 年教学经验。</p>
 </div>
 <script>
-var sky = document.getElementById('sky');
-for (var i = 0; i < 260; i++) {
-  var s = document.createElement('div');
-  s.className = 'star';
-  var size = Math.random() * 2 + 0.8;
-  s.style.width = size + 'px';
-  s.style.height = size + 'px';
-  s.style.left = Math.random() * 100 + '%';
-  s.style.top = Math.random() * 80 + '%';
-  s.style.animationDuration = (2 + Math.random() * 5) + 's';
-  s.style.animationDelay = (Math.random() * 5) + 's';
-  sky.appendChild(s);
+var bg = document.getElementById('bg'), tw = document.getElementById('tw');
+var W, H, dpr, twinkle = [], lastW = 0;
+var colors = [[190,210,255],[255,255,255],[255,244,220],[255,214,170]];
+function rnd(a, b) { return a + Math.random() * (b - a); }
+function gauss() { return (Math.random() + Math.random() + Math.random() + Math.random() - 2) / 2; }
+function pick() { return colors[Math.floor(Math.random() * colors.length)]; }
+
+function drawBg(g) {
+  var sky = g.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#01020a');
+  sky.addColorStop(0.55, '#040922');
+  sky.addColorStop(1, '#0b1640');
+  g.fillStyle = sky;
+  g.fillRect(0, 0, W, H);
+
+  // 银河：先画朦胧的光，再画暗色尘带，最后撒上密密的细小星星
+  g.save();
+  g.translate(W * 0.5, H * 0.4);
+  g.rotate(-0.5);
+  for (var i = 0; i < 45; i++) {
+    var x = rnd(-W, W), y = gauss() * H * 0.05, r = rnd(H * 0.12, H * 0.3);
+    var warm = Math.random() < 0.35;
+    var grad = g.createRadialGradient(x, y, 0, x, y, r);
+    grad.addColorStop(0, warm ? 'rgba(255,225,190,0.07)' : 'rgba(150,175,255,0.06)');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = grad;
+    g.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  for (var j = 0; j < 14; j++) {
+    var dx = rnd(-W * 0.8, W * 0.8), dy = gauss() * H * 0.04;
+    g.save();
+    g.translate(dx, dy);
+    g.rotate(rnd(-0.4, 0.4));
+    g.scale(rnd(1.5, 4), 1);
+    var dr = rnd(H * 0.015, H * 0.04);
+    var dg = g.createRadialGradient(0, 0, 0, 0, 0, dr);
+    dg.addColorStop(0, 'rgba(1,3,12,0.35)');
+    dg.addColorStop(1, 'rgba(1,3,12,0)');
+    g.fillStyle = dg;
+    g.fillRect(-dr, -dr, dr * 2, dr * 2);
+    g.restore();
+  }
+  for (var k = 0; k < 3500; k++) {
+    var sx = rnd(-W * 0.9, W * 0.9), sy = gauss() * H * 0.09;
+    var c = pick();
+    g.fillStyle = 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + rnd(0.15, 0.6) + ')';
+    g.beginPath();
+    g.arc(sx, sy, rnd(0.3, 0.8), 0, 6.283);
+    g.fill();
+  }
+  g.restore();
+
+  // 普通星星：大部分很小很暗，只有极少数较大
+  var count = Math.floor(W * H / 450);
+  for (var m = 0; m < count; m++) {
+    var px = rnd(0, W), py = rnd(0, H * 0.92);
+    var size = 0.3 + Math.pow(Math.random(), 8) * 1.6;
+    var col = pick();
+    g.fillStyle = 'rgba(' + col[0] + ',' + col[1] + ',' + col[2] + ',' + rnd(0.25, 0.9) + ')';
+    g.beginPath();
+    g.arc(px, py, size, 0, 6.283);
+    g.fill();
+  }
+
+  // 少数亮星：带光晕
+  for (var b = 0; b < 14; b++) {
+    var bx = rnd(0, W), by = rnd(0, H * 0.8), br = rnd(5, 11);
+    var bc = pick();
+    var bgrad = g.createRadialGradient(bx, by, 0, bx, by, br);
+    bgrad.addColorStop(0, 'rgba(255,255,255,0.95)');
+    bgrad.addColorStop(0.2, 'rgba(' + bc[0] + ',' + bc[1] + ',' + bc[2] + ',0.4)');
+    bgrad.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = bgrad;
+    g.fillRect(bx - br, by - br, br * 2, br * 2);
+    g.fillStyle = '#fff';
+    g.beginPath();
+    g.arc(bx, by, 1.3, 0, 6.283);
+    g.fill();
+  }
 }
+
+function setup() {
+  dpr = window.devicePixelRatio || 1;
+  W = window.innerWidth;
+  H = window.innerHeight;
+  lastW = W;
+  bg.width = tw.width = W * dpr;
+  bg.height = tw.height = H * dpr;
+  var g = bg.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawBg(g);
+  tw.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
+  twinkle = [];
+  var n = Math.floor(W * H / 9000);
+  for (var i = 0; i < n; i++) {
+    twinkle.push({ x: rnd(0, W), y: rnd(0, H * 0.9), r: rnd(0.6, 1.4), c: pick(), ph: rnd(0, 6.28), sp: rnd(0.8, 3) });
+  }
+}
+
+function loop(t) {
+  var c = tw.getContext('2d');
+  c.clearRect(0, 0, W, H);
+  for (var i = 0; i < twinkle.length; i++) {
+    var s = twinkle[i];
+    var a = 0.15 + 0.85 * (0.5 + 0.5 * Math.sin(t / 1000 * s.sp + s.ph));
+    c.fillStyle = 'rgba(' + s.c[0] + ',' + s.c[1] + ',' + s.c[2] + ',' + a + ')';
+    c.beginPath();
+    c.arc(s.x, s.y, s.r, 0, 6.283);
+    c.fill();
+  }
+  requestAnimationFrame(loop);
+}
+
+setup();
+requestAnimationFrame(loop);
+window.addEventListener('resize', function () { if (window.innerWidth !== lastW) setup(); });
 </script>
 </body>
 </html>
