@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>张力流行演唱教室</title>
 <style>
-body { margin: 0; min-height: 100vh; overflow-x: hidden; font-family: sans-serif; color: #e8ecff; line-height: 1.8; background: #01020a; }
-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; }
-.dune1 { position: fixed; bottom: -90px; left: -20%; width: 90%; height: 200px; background: #020309; border-radius: 50% 50% 0 0; z-index: 1; }
-.dune2 { position: fixed; bottom: -70px; right: -20%; width: 85%; height: 160px; background: #05060f; border-radius: 50% 50% 0 0; z-index: 1; }
+body { margin: 0; min-height: 100vh; overflow-x: hidden; font-family: sans-serif; color: #e8ecff; line-height: 1.8; background: #00010a; }
+canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+#bg, #tw { z-index: 0; }
+#gr { z-index: 1; }
 .content { position: relative; z-index: 2; max-width: 600px; margin: 40px auto; padding: 30px 24px;
   background: rgba(3,6,30,.4); border-radius: 16px; backdrop-filter: blur(6px); }
 h1 { margin-top: 0; }
@@ -17,112 +17,199 @@ h1 { margin-top: 0; }
 <body>
 <canvas id="bg"></canvas>
 <canvas id="tw"></canvas>
-<div class="dune1"></div>
-<div class="dune2"></div>
+<canvas id="gr"></canvas>
 <div class="content">
-<h1>张力流行演唱教室</h1>
-<p>一对一流行演唱教学，位于长沙。</p>
-<h2>关于老师</h2>
-<p>18 年演唱经验，8 年教学经验。</p>
+<h1>2026 10 01</h1>
+<p>位于长沙。</p>
 </div>
 <script>
-var bg = document.getElementById('bg'), tw = document.getElementById('tw');
-var W, H, dpr, twinkle = [], lastW = 0;
-var colors = [[190,210,255],[255,255,255],[255,244,220],[255,214,170]];
+var bg = document.getElementById('bg'), tw = document.getElementById('tw'), gr = document.getElementById('gr');
+var W, H, dpr, lastW = 0, seed = Math.random() * 1000;
+var twinkle = [], meteor = null, nextM = 0;
+var gG, gD, gw, gh, SC = 4;
+var mwG = 0, mwD = 0, mwC = 0;
+
 function rnd(a, b) { return a + Math.random() * (b - a); }
 function gauss() { return (Math.random() + Math.random() + Math.random() + Math.random() - 2) / 2; }
-function pick() { return colors[Math.floor(Math.random() * colors.length)]; }
+function clamp(x, a, b) { return Math.max(a, Math.min(b, x)); }
+function smooth(a, b, x) { var t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }
 
-function drawBg(g) {
+function hash(x, y) { var n = Math.sin(x * 127.1 + y * 311.7 + seed) * 43758.5453; return n - Math.floor(n); }
+function vnoise(x, y) {
+  var xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+  var u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  var a = hash(xi, yi), b = hash(xi + 1, yi), c = hash(xi, yi + 1), d = hash(xi + 1, yi + 1);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+function fbm(x, y) {
+  var s = 0, a = 0.5;
+  for (var i = 0; i < 5; i++) { s += a * vnoise(x, y); x *= 2.03; y *= 2.03; a *= 0.5; }
+  return s;
+}
+
+function starColor() {
+  var r = Math.random();
+  if (r < 0.12) return [170, 195, 255];
+  if (r < 0.55) return [245, 247, 255];
+  if (r < 0.80) return [255, 244, 215];
+  if (r < 0.93) return [255, 208, 150];
+  return [255, 170, 130];
+}
+function dot(g, x, y, r, c, a) {
+  g.fillStyle = 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')';
+  g.beginPath(); g.arc(x, y, r, 0, 6.2832); g.fill();
+}
+function ext(y) {
+  var f = y / H;
+  if (f < 0.55) return 1;
+  return Math.max(0.12, 1 - (f - 0.55) / 0.4 * 0.9);
+}
+
+// 银河的亮度和尘埃分布
+function mwField(px, py) {
+  var dx = px - W * 0.5, dy = py - H * 0.42;
+  var uu = (dx * 0.878 - dy * 0.479) / H;
+  var vv = (dx * 0.479 + dy * 0.878) / H;
+  var vc = 0.05 * (vnoise(uu * 2 + 9, 3) - 0.5) * 2;
+  var wd = 0.12 + 0.05 * vnoise(uu * 1.6 + 4, 1);
+  var v2 = vv - vc;
+  var prof = Math.exp(-(v2 / wd) * (v2 / wd));
+  var bulge = Math.exp(-(uu / 0.4) * (uu / 0.4));
+  var cloud = 0.35 + 0.9 * fbm(uu * 5 + 11, vv * 5 + 2);
+  var g = prof * (0.45 + 1.3 * bulge) * cloud;
+  var lane = fbm(uu * 7 + 20, vv * 9 + 5);
+  var e = v2 / (wd * 1.1);
+  var dust = smooth(0.50, 0.70, lane) * Math.exp(-e * e);
+  var rv = v2 - 0.02 * Math.sin(uu * 6);
+  var rift = Math.exp(-(rv / 0.02) * (rv / 0.02)) * (0.35 + 0.65 * Math.exp(-(uu / 0.7) * (uu / 0.7)));
+  var d = Math.min(1, dust * 0.9 + rift * 0.7);
+  mwG = g * (1 - 0.85 * d); mwD = d; mwC = bulge;
+}
+
+function drawBg() {
+  var g = bg.getContext('2d');
   var sky = g.createLinearGradient(0, 0, 0, H);
-  sky.addColorStop(0, '#01020a');
-  sky.addColorStop(0.55, '#040922');
-  sky.addColorStop(1, '#0b1640');
+  sky.addColorStop(0, '#00010a');
+  sky.addColorStop(0.55, '#030820');
+  sky.addColorStop(1, '#0a1535');
   g.fillStyle = sky;
   g.fillRect(0, 0, W, H);
 
-  // 银河：先画朦胧的光，再画暗色尘带，最后撒上密密的细小星星
-  g.save();
-  g.translate(W * 0.5, H * 0.4);
-  g.rotate(-0.5);
-  for (var i = 0; i < 45; i++) {
-    var x = rnd(-W, W), y = gauss() * H * 0.05, r = rnd(H * 0.12, H * 0.3);
-    var warm = Math.random() < 0.35;
-    var grad = g.createRadialGradient(x, y, 0, x, y, r);
-    grad.addColorStop(0, warm ? 'rgba(255,225,190,0.07)' : 'rgba(150,175,255,0.06)');
-    grad.addColorStop(1, 'rgba(0,0,0,0)');
-    g.fillStyle = grad;
-    g.fillRect(x - r, y - r, r * 2, r * 2);
+  // 银河的朦胧光带（低分辨率计算后放大，边缘自然柔和）
+  gw = Math.ceil(W / SC); gh = Math.ceil(H / SC);
+  gG = new Float32Array(gw * gh); gD = new Float32Array(gw * gh);
+  var mc = document.createElement('canvas'); mc.width = gw; mc.height = gh;
+  var mx = mc.getContext('2d');
+  var img = mx.createImageData(gw, gh), d = img.data;
+  for (var y = 0; y < gh; y++) {
+    for (var x = 0; x < gw; x++) {
+      mwField(x * SC, y * SC);
+      var i = y * gw + x;
+      gG[i] = mwG; gD[i] = mwD;
+      var t = Math.min(1, mwC), I = Math.min(0.45, mwG * 0.26), o = i * 4;
+      d[o] = (150 + 105 * t) * I;
+      d[o + 1] = (172 + 50 * t) * I;
+      d[o + 2] = (255 - 70 * t) * I;
+      d[o + 3] = 255;
+    }
   }
-  for (var j = 0; j < 14; j++) {
-    var dx = rnd(-W * 0.8, W * 0.8), dy = gauss() * H * 0.04;
-    g.save();
-    g.translate(dx, dy);
-    g.rotate(rnd(-0.4, 0.4));
-    g.scale(rnd(1.5, 4), 1);
-    var dr = rnd(H * 0.015, H * 0.04);
-    var dg = g.createRadialGradient(0, 0, 0, 0, 0, dr);
-    dg.addColorStop(0, 'rgba(1,3,12,0.35)');
-    dg.addColorStop(1, 'rgba(1,3,12,0)');
-    g.fillStyle = dg;
-    g.fillRect(-dr, -dr, dr * 2, dr * 2);
-    g.restore();
-  }
-  for (var k = 0; k < 3500; k++) {
-    var sx = rnd(-W * 0.9, W * 0.9), sy = gauss() * H * 0.09;
-    var c = pick();
-    g.fillStyle = 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + rnd(0.15, 0.6) + ')';
-    g.beginPath();
-    g.arc(sx, sy, rnd(0.3, 0.8), 0, 6.283);
-    g.fill();
-  }
-  g.restore();
+  mx.putImageData(img, 0, 0);
+  g.globalCompositeOperation = 'lighter';
+  g.imageSmoothingEnabled = true;
+  g.imageSmoothingQuality = 'high';
+  g.drawImage(mc, 0, 0, gw * SC, gh * SC);
+  g.globalCompositeOperation = 'source-over';
 
-  // 普通星星：大部分很小很暗，只有极少数较大
-  var count = Math.floor(W * H / 450);
-  for (var m = 0; m < count; m++) {
-    var px = rnd(0, W), py = rnd(0, H * 0.92);
-    var size = 0.3 + Math.pow(Math.random(), 8) * 1.6;
-    var col = pick();
-    g.fillStyle = 'rgba(' + col[0] + ',' + col[1] + ',' + col[2] + ',' + rnd(0.25, 0.9) + ')';
-    g.beginPath();
-    g.arc(px, py, size, 0, 6.283);
-    g.fill();
+  // 地平线微弱的夜气辉
+  var air = g.createLinearGradient(0, H * 0.55, 0, H);
+  air.addColorStop(0, 'rgba(40,85,75,0)');
+  air.addColorStop(0.7, 'rgba(40,85,75,0.07)');
+  air.addColorStop(1, 'rgba(70,90,150,0.16)');
+  g.fillStyle = air;
+  g.fillRect(0, H * 0.55, W, H * 0.45);
+
+  // 银河里密集的细小星星
+  var n1 = Math.min(9000, Math.floor(W * H / 160));
+  for (var a = 0; a < n1; a++) {
+    for (var tr = 0; tr < 20; tr++) {
+      var px = rnd(0, W), py = rnd(0, H * 0.92);
+      var idx = Math.min(gh - 1, Math.floor(py / SC)) * gw + Math.min(gw - 1, Math.floor(px / SC));
+      if (Math.random() < Math.min(1, gG[idx] * 1.6)) {
+        dot(g, px, py, rnd(0.25, 0.55), starColor(), rnd(0.2, 0.55) * ext(py));
+        break;
+      }
+    }
   }
 
-  // 少数亮星：带光晕
-  for (var b = 0; b < 14; b++) {
-    var bx = rnd(0, W), by = rnd(0, H * 0.8), br = rnd(5, 11);
-    var bc = pick();
-    var bgrad = g.createRadialGradient(bx, by, 0, bx, by, br);
-    bgrad.addColorStop(0, 'rgba(255,255,255,0.95)');
-    bgrad.addColorStop(0.2, 'rgba(' + bc[0] + ',' + bc[1] + ',' + bc[2] + ',0.4)');
-    bgrad.addColorStop(1, 'rgba(0,0,0,0)');
-    g.fillStyle = bgrad;
+  // 普通星星：绝大多数很暗很小，少数较亮
+  var n2 = Math.floor(W * H / 420);
+  for (var b = 0; b < n2; b++) {
+    var sx = rnd(0, W), sy = rnd(0, H * 0.92);
+    var id2 = Math.min(gh - 1, Math.floor(sy / SC)) * gw + Math.min(gw - 1, Math.floor(sx / SC));
+    if (Math.random() > 1 - 0.75 * gD[id2]) continue;
+    var m = Math.pow(Math.random(), 7);
+    var al = Math.min(1, 0.25 + 0.6 * Math.random() + m * 0.4) * ext(sy);
+    dot(g, sx, sy, 0.3 + m * 1.5, starColor(), al);
+  }
+
+  // 少数亮星，带柔和光晕
+  for (var k = 0; k < 16; k++) {
+    var bx = rnd(0, W), by = rnd(0, H * 0.72), c = starColor();
+    var br = k < 3 ? rnd(10, 15) : rnd(4, 8);
+    var gr2 = g.createRadialGradient(bx, by, 0, bx, by, br);
+    gr2.addColorStop(0, 'rgba(255,255,255,0.9)');
+    gr2.addColorStop(0.15, 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',0.35)');
+    gr2.addColorStop(1, 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',0)');
+    g.fillStyle = gr2;
     g.fillRect(bx - br, by - br, br * 2, br * 2);
-    g.fillStyle = '#fff';
-    g.beginPath();
-    g.arc(bx, by, 1.3, 0, 6.283);
-    g.fill();
+    dot(g, bx, by, k < 3 ? 1.6 : 1.2, [255, 255, 255], 1);
   }
 }
 
-function setup() {
-  dpr = window.devicePixelRatio || 1;
-  W = window.innerWidth;
-  H = window.innerHeight;
-  lastW = W;
-  bg.width = tw.width = W * dpr;
-  bg.height = tw.height = H * dpr;
-  var g = bg.getContext('2d');
-  g.setTransform(dpr, 0, 0, dpr, 0, 0);
-  drawBg(g);
-  tw.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
-  twinkle = [];
-  var n = Math.floor(W * H / 9000);
-  for (var i = 0; i < n; i++) {
-    twinkle.push({ x: rnd(0, W), y: rnd(0, H * 0.9), r: rnd(0.6, 1.4), c: pick(), ph: rnd(0, 6.28), sp: rnd(0.8, 3) });
+function ridgePath(g, p) {
+  g.beginPath();
+  for (var x = 0; x <= W + 4; x += 4) {
+    var y = p.sharp
+      ? p.base - p.a1 * (1 - Math.abs(Math.sin(x * p.f1 + p.p1))) + p.a2 * Math.sin(x * p.f2 + p.p2)
+      : p.base + p.a1 * Math.sin(x * p.f1 + p.p1) + p.a2 * Math.sin(x * p.f2 + p.p2);
+    if (x === 0) g.moveTo(x, y); else g.lineTo(x, y);
   }
+}
+function layer(g, base, a1, a2, sharp, fill, rim) {
+  var p = { base: base, a1: a1, a2: a2, sharp: sharp,
+    f1: 6.2832 / (W * rnd(0.6, 1.1)), p1: rnd(0, 6.28),
+    f2: 6.2832 / (W * rnd(0.25, 0.45)), p2: rnd(0, 6.28) };
+  ridgePath(g, p);
+  g.lineTo(W + 4, H); g.lineTo(0, H); g.closePath();
+  g.fillStyle = fill; g.fill();
+  if (rim) { ridgePath(g, p); g.strokeStyle = rim; g.lineWidth = 1; g.stroke(); }
+}
+function drawGround() {
+  var g = gr.getContext('2d');
+  g.clearRect(0, 0, W, H);
+  layer(g, H * 0.89, H * 0.025, H * 0.012, false, '#070b1f', 'rgba(110,130,200,0.22)');
+  layer(g, H * 0.95, H * 0.035, H * 0.01, true, '#03050f', 'rgba(80,100,170,0.18)');
+  layer(g, H * 1.01, H * 0.03, H * 0.012, false, '#010207', null);
+}
+
+function setup() {
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight; lastW = W;
+  [bg, tw, gr].forEach(function (c) {
+    c.width = W * dpr; c.height = H * dpr;
+    c.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
+  });
+  seed = Math.random() * 1000;
+  drawBg();
+  drawGround();
+  twinkle = [];
+  var n = Math.floor(W * H / 11000);
+  for (var i = 0; i < n; i++) {
+    var y = rnd(0, H * 0.85);
+    twinkle.push({ x: rnd(0, W), y: y, r: rnd(0.7, 1.5), c: starColor(), ph: rnd(0, 6.28),
+      sp: rnd(0.8, 3), base: rnd(0.5, 0.95), amp: 0.15 + 0.35 * (y / H) });
+  }
+  nextM = performance.now() + rnd(4000, 9000);
 }
 
 function loop(t) {
@@ -130,11 +217,28 @@ function loop(t) {
   c.clearRect(0, 0, W, H);
   for (var i = 0; i < twinkle.length; i++) {
     var s = twinkle[i];
-    var a = 0.15 + 0.85 * (0.5 + 0.5 * Math.sin(t / 1000 * s.sp + s.ph));
-    c.fillStyle = 'rgba(' + s.c[0] + ',' + s.c[1] + ',' + s.c[2] + ',' + a + ')';
-    c.beginPath();
-    c.arc(s.x, s.y, s.r, 0, 6.283);
-    c.fill();
+    var f = (0.5 + 0.5 * Math.sin(t / 1000 * s.sp + s.ph)) * (0.7 + 0.3 * Math.sin(t / 230 * s.sp + s.ph * 3));
+    dot(c, s.x, s.y, s.r, s.c, s.base * (1 - s.amp * f) * ext(s.y));
+  }
+  if (!meteor && t > nextM) {
+    var dir = Math.random() < 0.5 ? 1 : -1, ang = rnd(0.35, 0.7);
+    meteor = { x: rnd(W * 0.15, W * 0.85), y: rnd(H * 0.03, H * 0.35), vx: dir * Math.cos(ang), vy: Math.sin(ang),
+      sp: W * 0.7, len: rnd(90, 170), t0: t, life: rnd(550, 900) };
+  }
+  if (meteor) {
+    var p = (t - meteor.t0) / meteor.life;
+    if (p >= 1) { meteor = null; nextM = t + rnd(7000, 16000); }
+    else {
+      var hx = meteor.x + meteor.vx * meteor.sp * p * meteor.life / 1000;
+      var hy = meteor.y + meteor.vy * meteor.sp * p * meteor.life / 1000;
+      var L = meteor.len * Math.sin(Math.PI * p);
+      var tx = hx - meteor.vx * L, ty = hy - meteor.vy * L;
+      var lg = c.createLinearGradient(tx, ty, hx, hy);
+      lg.addColorStop(0, 'rgba(255,255,255,0)');
+      lg.addColorStop(1, 'rgba(235,242,255,' + (0.9 * Math.sin(Math.PI * p)) + ')');
+      c.strokeStyle = lg; c.lineWidth = 1.4; c.lineCap = 'round';
+      c.beginPath(); c.moveTo(tx, ty); c.lineTo(hx, hy); c.stroke();
+    }
   }
   requestAnimationFrame(loop);
 }
